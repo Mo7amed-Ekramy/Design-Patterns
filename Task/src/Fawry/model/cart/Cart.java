@@ -28,7 +28,9 @@ public class Cart {
 
     public void add(Product product, int quantity) {
         if (quantity > product.getQuantity()) {
-            System.out.println("Not enough stock for: " + product.getName());
+            if (observers.isEmpty()) {
+                System.out.println("Not enough stock for: " + product.getName());
+            }
             notifyAddFailed(product, quantity);
             return;
         }
@@ -61,7 +63,9 @@ public class Cart {
         double weight = 0;
         for (CartItem item : items) {
             if (item.getProduct() instanceof Shippable shippable) {
-                weight += shippable.getWeight() * item.getQuantity();
+                if (shippable.getWeight() > 0) {
+                    weight += shippable.getWeight() * item.getQuantity();
+                }
             }
         }
         return weight;

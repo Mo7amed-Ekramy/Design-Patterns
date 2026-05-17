@@ -17,14 +17,14 @@ public class ConsoleLogger implements CartObserver {
     @Override
     public void onProductAdded(Product product, int quantity) {
         if (enabled) {
-            System.out.println("Added to cart: " + quantity + "x " + product.getName());
+            System.out.printf("[Cart] Added   | %2dx %-25s%n", quantity, product.getName());
         }
     }
 
     @Override
     public void onAddFailed(Product product, int quantity) {
         if (enabled) {
-            System.out.println("Failed to add: " + quantity + "x " + product.getName());
+            System.out.printf("[Cart] Failed  | %2dx %-25s | Not enough stock%n", quantity, product.getName());
         }
     }
 }

@@ -5,4 +5,6 @@ public interface ExternalShippingItem {
     String getItemName();
 
     double getItemWeight();
+
+    int getQuantity();
 }

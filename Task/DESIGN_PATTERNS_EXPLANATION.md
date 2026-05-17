@@ -1,65 +1,110 @@
 # Design Patterns Refactor Explanation
 
-This project is a small Java e-commerce/cart checkout application. It was refactored to demonstrate six design patterns while preserving the original business behavior.
+This project is a small Java e-commerce/cart checkout application. It started as a simple checkout system, then it was refactored to demonstrate six design patterns:
 
-The main goal was not to change how the program works. The goal was to organize the code better and show where each pattern can fit.
+- Factory
+- Strategy
+- Singleton
+- Observer
+- Decorator
+- Adapter
 
-## Original Business Behavior
+The project is still simple and readable. The original cart and checkout workflow is still the base of the application, but we added useful features to make all six patterns active.
 
-The refactor preserves these rules:
+## Original Project Idea
+
+The original project had these main classes:
+
+- `Product`
+- `Cheese`
+- `Biscuits`
+- `TV`
+- `ScratchCard`
+- `Shippable`
+- `Cart`
+- `CartItem`
+- `Customer`
+- `CheckoutService`
+- `Main`
+
+The application simulates a customer adding products to a cart and then checking out.
+
+## Original Business Rules
+
+These rules still exist:
 
 - Product stock is reduced immediately when `cart.add(product, quantity)` succeeds.
-- If requested quantity is greater than available stock, the program prints:
+- If requested quantity is greater than available stock, the item is not added.
+- A failed add means the product quantity is not reduced.
+- `Cheese`, `Biscuits`, and `TV` are shippable.
+- `ScratchCard` is not shippable.
+- Shipping is `30` if the cart has at least one shippable product.
+- Shipping is `0` if the cart has no shippable products.
+- Shipping cost does not depend on the actual weight amount.
+- Weight is used only for shipment information.
+- Checkout validates empty cart.
+- Checkout validates insufficient customer balance.
+- Checkout prints shipment details, receipt details, subtotal, shipping, amount, and customer balance after payment.
 
-```text
-Not enough stock for: PRODUCT_NAME
-```
+## New Features Added
 
-- The item is not added to the cart when stock is not enough.
-- Shipping is `30` if the cart contains at least one shippable product.
-- Shipping is `0` if the cart contains no shippable products.
-- Shipping price does not depend on the actual weight amount.
-- Weight is only used when printing the shipment notice.
-- Checkout still prints the shipment notice, receipt, subtotal, shipping, amount, and customer balance after payment.
+After the refactor, we added these useful behaviors:
+
+- Observer logging for cart events.
+- Premium customer discount using Decorator.
+- Customer city.
+- Simulated external shipping service using Adapter.
+- Cleaner formatted console output.
+
+Ali is now a premium customer, so his products receive a 10% discount.
+
+Mohamed is not premium, so his totals remain the same as the original behavior.
 
 ## Package Structure
 
-The project was reorganized into this structure:
+The project is now organized like this:
 
 ```text
 Fawry/
-├── Main.java
-├── model/
-│   ├── product/
-│   ├── cart/
-│   └── customer/
-├── factory/
-├── strategy/
-├── singleton/
-├── observer/
-├── decorator/
-├── adapter/
-└── shipping/
+|-- Main.java
+|-- model/
+|   |-- product/
+|   |   |-- Product.java
+|   |   |-- Cheese.java
+|   |   |-- Biscuits.java
+|   |   |-- TV.java
+|   |   `-- ScratchCard.java
+|   |-- cart/
+|   |   |-- Cart.java
+|   |   `-- CartItem.java
+|   `-- customer/
+|       `-- Customer.java
+|-- factory/
+|   `-- ProductFactory.java
+|-- strategy/
+|   |-- ShippingStrategy.java
+|   `-- FlatRateShippingStrategy.java
+|-- singleton/
+|   `-- CheckoutService.java
+|-- observer/
+|   |-- CartObserver.java
+|   `-- ConsoleLogger.java
+|-- decorator/
+|   |-- ProductDecorator.java
+|   `-- DiscountedProduct.java
+|-- adapter/
+|   |-- ExternalShippingItem.java
+|   |-- ShippingItemAdapter.java
+|   `-- ExternalShippingService.java
+`-- shipping/
+    `-- Shippable.java
 ```
 
-This makes the design patterns easier to identify and discuss.
+## Product Model
 
-## Model Classes
+`Product` is the abstract base class for all products.
 
-The core business classes are inside the `model` package.
-
-Product classes:
-
-```text
-Fawry/model/product/
-├── Product.java
-├── Cheese.java
-├── Biscuits.java
-├── TV.java
-└── ScratchCard.java
-```
-
-`Product` is still the abstract parent class. It contains:
+It stores:
 
 ```java
 private String name;
@@ -67,41 +112,49 @@ private double price;
 private int quantity;
 ```
 
-It also still contains:
+It has common methods like:
 
 ```java
-public void reduceQuantity(int quant)
+getName()
+getPrice()
+getQuantity()
+reduceQuantity(int quant)
+isExpirable()
 ```
 
-This method preserves the original stock reduction behavior.
-
-`Cheese`, `Biscuits`, and `TV` are shippable products.
-
-`ScratchCard` is not shippable.
-
-## Shipping Interface
-
-The `Shippable` interface is now located in:
-
-```text
-Fawry/shipping/Shippable.java
-```
-
-It still contains only:
+`reduceQuantity` keeps the original stock behavior:
 
 ```java
-double getWeight();
+public void reduceQuantity(int quant) {
+    if (quant > quantity) {
+        throw new IllegalArgumentException("Insufficient stock.");
+    }
+    quantity -= quant;
+}
+```
+
+Concrete products:
+
+- `Cheese` extends `Product` and implements `Shippable`
+- `Biscuits` extends `Product` and implements `Shippable`
+- `TV` extends `Product` and implements `Shippable`
+- `ScratchCard` extends `Product`
+
+## Shipping Model
+
+`Shippable` is an interface:
+
+```java
+public interface Shippable {
+    double getWeight();
+}
 ```
 
 Any product that can be shipped implements this interface.
 
-## Cart and CartItem
+`ScratchCard` does not implement it, so it is not included in shipment weight.
 
-Cart classes are now inside:
-
-```text
-Fawry/model/cart/
-```
+## Cart Model
 
 `CartItem` stores:
 
@@ -110,13 +163,19 @@ private Product product;
 private int quantity;
 ```
 
-`Cart` still stores a list of cart items.
+`Cart` stores:
 
-The important add logic is preserved:
+```java
+private List<CartItem> items = new ArrayList<>();
+```
+
+The cart add logic still follows the original behavior:
 
 ```java
 if (quantity > product.getQuantity()) {
-    System.out.println("Not enough stock for: " + product.getName());
+    if (observers.isEmpty()) {
+        System.out.println("Not enough stock for: " + product.getName());
+    }
     notifyAddFailed(product, quantity);
     return;
 }
@@ -126,7 +185,35 @@ product.reduceQuantity(quantity);
 notifyProductAdded(product, quantity);
 ```
 
-So stock is still reduced immediately after the item is added successfully.
+The only formatting change is that when observer logging is enabled, the observer prints the failed add message in a cleaner format.
+
+## Customer Model
+
+Originally, `Customer` had:
+
+```java
+private String name;
+private double balance;
+```
+
+Now it also has:
+
+```java
+private boolean premium;
+private String city;
+```
+
+These fields are used for the new features:
+
+- `premium`: applies a 10% discount through the Decorator pattern.
+- `city`: is sent to the external shipping service through the Adapter pattern.
+
+Example:
+
+```java
+Customer customer = new Customer("Ali", 1000, true, "Cairo");
+Customer customer2 = new Customer("mohamed", 1500, false, "Alexandria");
+```
 
 ## 1. Factory Pattern
 
@@ -140,19 +227,19 @@ Purpose:
 
 Centralize product creation.
 
-Before:
+Before the refactor:
 
 ```java
 Product cheese = new Cheese("Cheese 400g", 100, 10, 0.4);
 ```
 
-After:
+After the refactor:
 
 ```java
 Product cheese = ProductFactory.createCheese("Cheese 400g", 100, 10, 0.4);
 ```
 
-The factory methods simply return the correct product objects:
+The factory is simple:
 
 ```java
 public static Product createCheese(String name, double price, int quantity, double weight) {
@@ -160,9 +247,11 @@ public static Product createCheese(String name, double price, int quantity, doub
 }
 ```
 
-This keeps `Main` cleaner and hides direct constructor usage.
+Why it is useful:
 
-Business behavior changed: **No**.
+- `Main` does not directly call product constructors.
+- Product creation is centralized in one place.
+- Adding new product creation methods later is easy.
 
 ## 2. Strategy Pattern
 
@@ -177,7 +266,13 @@ Purpose:
 
 Move shipping calculation outside `Cart`.
 
-`Cart` now delegates shipping calculation:
+`Cart` now uses:
+
+```java
+private ShippingStrategy shippingStrategy;
+```
+
+and:
 
 ```java
 public double calculateShipping() {
@@ -185,26 +280,26 @@ public double calculateShipping() {
 }
 ```
 
-The current strategy preserves the original rule:
+The current strategy is `FlatRateShippingStrategy`:
 
 ```java
-public class FlatRateShippingStrategy implements ShippingStrategy {
-    @Override
-    public double calculateShipping(Cart cart) {
-        if (cart.totalWeight() > 0) {
-            return 30;
-        }
-        return 0;
+public double calculateShipping(Cart cart) {
+    if (cart.totalWeight() > 0) {
+        return 30;
     }
+    return 0;
 }
 ```
 
-This means:
+This preserves the original shipping rule:
 
-- if total shippable weight is greater than `0`, shipping is `30`
-- otherwise, shipping is `0`
+- shippable items exist: shipping is `30`
+- no shippable items: shipping is `0`
 
-Business behavior changed: **No**.
+Why it is useful:
+
+- Shipping rules are separated from `Cart`.
+- We can later add another shipping rule without rewriting cart logic.
 
 ## 3. Singleton Pattern
 
@@ -224,13 +319,13 @@ Before:
 CheckoutService.checkout(customer, cart);
 ```
 
-After:
+Now:
 
 ```java
 CheckoutService.getInstance().checkout(customer, cart);
 ```
 
-The singleton implementation:
+Implementation:
 
 ```java
 private static final CheckoutService INSTANCE = new CheckoutService();
@@ -243,18 +338,11 @@ public static CheckoutService getInstance() {
 }
 ```
 
-The checkout logic itself is the same:
+Why it is useful:
 
-- check if cart is empty
-- calculate subtotal
-- calculate shipping
-- calculate total
-- check customer balance
-- print shipment notice
-- print checkout receipt
-- deduct customer balance
-
-Business behavior changed: **No**.
+- There is only one checkout service object.
+- Checkout behavior is centralized.
+- It demonstrates Singleton without adding framework complexity.
 
 ## 4. Observer Pattern
 
@@ -267,28 +355,19 @@ Fawry/observer/ConsoleLogger.java
 
 Purpose:
 
-Allow other objects to react to cart events without changing cart logic.
+Allow other classes to react to cart events without changing the cart business logic.
 
-`CartObserver` defines two events:
+`CartObserver` defines:
 
 ```java
 void onProductAdded(Product product, int quantity);
-
 void onAddFailed(Product product, int quantity);
 ```
 
-`Cart` has:
+`Cart` keeps a list of observers:
 
 ```java
 private List<CartObserver> observers = new ArrayList<>();
-```
-
-and:
-
-```java
-public void addObserver(CartObserver observer) {
-    observers.add(observer);
-}
 ```
 
 When adding succeeds:
@@ -303,15 +382,23 @@ When adding fails:
 notifyAddFailed(product, quantity);
 ```
 
-`ConsoleLogger` is registered in `Main`, but it is silent by default:
+In `Main`, observer logging is enabled:
 
 ```java
-cart.addObserver(new ConsoleLogger());
+cart.addObserver(new ConsoleLogger(true));
 ```
 
-This keeps the original console output unchanged.
+Example output:
 
-Business behavior changed: **No**.
+```text
+[Cart] Added   |  2x Cheese 400g
+[Cart] Failed  |  5x TV                        | Not enough stock
+```
+
+Why it is useful:
+
+- Cart does not need to know how logging works.
+- We can later add another observer, like email notification or analytics.
 
 ## 5. Decorator Pattern
 
@@ -324,17 +411,36 @@ Fawry/decorator/DiscountedProduct.java
 
 Purpose:
 
-Allow product behavior to be modified dynamically without changing the original product class.
+Add new behavior to products dynamically without changing the original product classes.
 
-Example future usage:
+We use it for premium customer discounts.
+
+In `Main`:
 
 ```java
-Product discountedCheese = new DiscountedProduct(cheese, 10);
+private static Product applyPremiumDiscount(Customer customer, Product product) {
+    if (customer.isPremium()) {
+        return new DiscountedProduct(product, 10);
+    }
+    return product;
+}
 ```
 
-This would apply a 10% discount.
+Ali is premium:
 
-`DiscountedProduct` changes the price dynamically:
+```java
+Customer customer = new Customer("Ali", 1000, true, "Cairo");
+```
+
+So Ali's products are wrapped:
+
+```java
+cart.add(applyPremiumDiscount(customer, cheese), 2);
+cart.add(applyPremiumDiscount(customer, biscuits), 1);
+cart.add(applyPremiumDiscount(customer, scratchCard), 1);
+```
+
+`DiscountedProduct` changes the price:
 
 ```java
 @Override
@@ -343,11 +449,24 @@ public double getPrice() {
 }
 ```
 
-Important:
+Important detail:
 
-The decorator is not used in `Main` by default because using it would change prices and totals.
+`DiscountedProduct` also implements `Shippable`, so discounted shippable products still count in shipping:
 
-Business behavior changed: **No**.
+```java
+@Override
+public double getWeight() {
+    if (product instanceof Shippable shippable) {
+        return shippable.getWeight();
+    }
+    return 0;
+}
+```
+
+Why it is useful:
+
+- We can discount products without changing `Cheese`, `Biscuits`, `TV`, or `ScratchCard`.
+- The discount is dynamic and applied only when needed.
 
 ## 6. Adapter Pattern
 
@@ -356,56 +475,68 @@ Files:
 ```text
 Fawry/adapter/ExternalShippingItem.java
 Fawry/adapter/ShippingItemAdapter.java
+Fawry/adapter/ExternalShippingService.java
 ```
 
 Purpose:
 
-Adapt the current product and shipping model to a possible external shipping format.
+Connect our internal product model to a simulated external shipping service that expects a different format.
 
-The external format expects:
-
-```java
-String getItemName();
-
-double getItemWeight();
-```
-
-But the current project has:
+Internally, our project has:
 
 ```java
 Product.getName()
 Shippable.getWeight()
+CartItem.getQuantity()
+Customer.getCity()
 ```
 
-So `ShippingItemAdapter` converts a `Product` that implements `Shippable` into the external shape:
+The external service expects:
 
 ```java
-public class ShippingItemAdapter implements ExternalShippingItem
+ExternalShippingItem
 ```
 
-It exposes:
+with:
 
 ```java
-public String getItemName() {
-    return product.getName();
-}
-
-public double getItemWeight() {
-    return shippable.getWeight();
-}
+String getItemName();
+double getItemWeight();
+int getQuantity();
 ```
 
-Important:
+`ShippingItemAdapter` converts our product to the external format:
 
-The adapter is not used in the checkout logic by default. It exists to demonstrate how the current model could integrate with another shipping API.
+```java
+externalShippingItems.add(new ShippingItemAdapter(item.getProduct(), item.getQuantity()));
+```
 
-Business behavior changed: **No**.
+Then `CheckoutService` sends it:
 
-## Main.java After Refactor
+```java
+new ExternalShippingService().ship(customer.getCity(), externalShippingItems);
+```
 
-`Main` now demonstrates the active patterns clearly.
+Example output:
 
-Factory usage:
+```text
+External Shipping Service
+-------------------------
+Destination: Cairo
+ 2x Cheese 400g                  0.8 kg
+ 1x Biscuits 700g                0.7 kg
+```
+
+Why it is useful:
+
+- We do not change `Product` just to match another system.
+- The adapter translates between our classes and the external service interface.
+
+## Main.java Flow
+
+`Main` now demonstrates the patterns clearly.
+
+Factory creates products:
 
 ```java
 Product cheese = ProductFactory.createCheese("Cheese 400g", 100, 10, 0.4);
@@ -414,65 +545,141 @@ Product tv = ProductFactory.createTV("TV", 3000, 2, 5.0);
 Product scratchCard = ProductFactory.createScratchCard("Mobile scratch card", 50, 100);
 ```
 
-Observer usage:
+Customers are created:
 
 ```java
-Cart cart = new Cart();
-cart.addObserver(new ConsoleLogger());
+Customer customer = new Customer("Ali", 1000, true, "Cairo");
+Customer customer2 = new Customer("mohamed", 1500, false, "Alexandria");
 ```
 
-Singleton usage:
+Observer is attached:
+
+```java
+cart.addObserver(new ConsoleLogger(true));
+```
+
+Premium discount is applied for Ali:
+
+```java
+cart.add(applyPremiumDiscount(customer, cheese), 2);
+```
+
+Checkout uses Singleton:
 
 ```java
 CheckoutService.getInstance().checkout(customer, cart);
 ```
 
-Decorator and Adapter are intentionally not used in `Main`, because the goal is to preserve the original checkout totals and console output.
+Adapter is used inside checkout when sending shippable items to the external shipping service.
 
-## Final Behavior
+## Current Output Behavior
 
-The sample still behaves the same:
+For Ali:
 
-- adding `5` TVs fails because TV stock is only `2`
-- TV is not added to the cart
-- shipping remains `30`
-- subtotal remains `400`
-- total amount remains `430`
-- first customer balance becomes `570`
-- second customer balance becomes `1070`
+- premium customer
+- city is Cairo
+- receives 10% discount
+- subtotal becomes `360.00`
+- shipping remains `30.00`
+- amount becomes `390.00`
+- final balance becomes `610.00`
 
-Example output:
+Ali calculation:
 
 ```text
-Not enough stock for: TV
-** Shipment notice **
-2x Cheese 400g
-1x Biscuits 700g
-Total package weight 1.5kg
-** Checkout receipt **
-2x Cheese 400g 200.0
-1x Biscuits 700g 150.0
-1x Mobile scratch card 50.0
-----------------------
-Subtotal 400.0
-Shipping 30.0
-Amount 430.0
-Customer balance after payment: 570.0
+Cheese:       2 * 100 = 200 -> 180
+Biscuits:     1 * 150 = 150 -> 135
+Scratch card: 1 * 50  = 50  -> 45
+Subtotal: 360
+Shipping: 30
+Amount: 390
+Balance: 1000 - 390 = 610
 ```
 
-## Summary
+For Mohamed:
 
-The refactor added these design patterns:
+- non-premium customer
+- city is Alexandria
+- no discount
+- subtotal remains `400.00`
+- shipping remains `30.00`
+- amount remains `430.00`
+- final balance becomes `1070.00`
 
-| Pattern | Where It Is Used | Active In Current Flow |
+Mohamed calculation:
+
+```text
+Cheese:       2 * 100 = 200
+Biscuits:     1 * 150 = 150
+Scratch card: 1 * 50  = 50
+Subtotal: 400
+Shipping: 30
+Amount: 430
+Balance: 1500 - 430 = 1070
+```
+
+TV behavior is unchanged:
+
+- TV stock is `2`
+- adding `5` TVs fails
+- TV is not added to either cart
+
+## Example Console Output
+
+```text
+[Cart] Added   |  2x Cheese 400g
+[Cart] Added   |  1x Biscuits 700g
+[Cart] Added   |  1x Mobile scratch card
+[Cart] Failed  |  5x TV                        | Not enough stock
+
+=====================================
+Checkout for Ali
+=====================================
+
+Shipment Notice
+-------------------------------------
+ 2x Cheese 400g                  0.8 kg
+ 1x Biscuits 700g                0.7 kg
+-------------------------------
+Total package weight            1.5 kg
+
+External Shipping Service
+-------------------------
+Destination: Cairo
+ 2x Cheese 400g                  0.8 kg
+ 1x Biscuits 700g                0.7 kg
+
+Checkout Receipt
+-------------------------------------
+ 2x Cheese 400g                 180.00
+ 1x Biscuits 700g               135.00
+ 1x Mobile scratch card          45.00
+-------------------------------------
+Subtotal                       360.00
+Shipping                        30.00
+Amount                         390.00
+Balance after payment          610.00
+=====================================
+```
+
+## Pattern Summary
+
+| Pattern | Files | Current Use |
 |---|---|---|
-| Factory | `ProductFactory` | Yes |
-| Strategy | `ShippingStrategy`, `FlatRateShippingStrategy` | Yes |
-| Singleton | `CheckoutService` | Yes |
-| Observer | `CartObserver`, `ConsoleLogger` | Yes, but silent |
-| Decorator | `ProductDecorator`, `DiscountedProduct` | Available, not used |
-| Adapter | `ExternalShippingItem`, `ShippingItemAdapter` | Available, not used |
+| Factory | `ProductFactory` | Creates products in `Main` |
+| Strategy | `ShippingStrategy`, `FlatRateShippingStrategy` | Calculates shipping |
+| Singleton | `CheckoutService` | Provides one checkout service instance |
+| Observer | `CartObserver`, `ConsoleLogger` | Logs cart add success/failure |
+| Decorator | `ProductDecorator`, `DiscountedProduct` | Adds premium discount dynamically |
+| Adapter | `ExternalShippingItem`, `ShippingItemAdapter`, `ExternalShippingService` | Sends shippable items to an external shipping format |
 
-The main idea:
+## Final Notes
 
-The project now demonstrates six design patterns in a clean educational way, while keeping the original e-commerce/cart checkout behavior unchanged.
+The project still follows the original e-commerce checkout idea, but now each design pattern has a clear purpose:
+
+- Factory handles object creation.
+- Strategy handles shipping calculation.
+- Singleton handles checkout service access.
+- Observer handles cart event logging.
+- Decorator handles premium discounts.
+- Adapter handles communication with a simulated external shipping service.

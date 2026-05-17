@@ -1,6 +1,7 @@
 package Fawry;
 
 import Fawry.factory.ProductFactory;
+import Fawry.decorator.DiscountedProduct;
 import Fawry.model.cart.Cart;
 import Fawry.model.customer.Customer;
 import Fawry.model.product.Product;
@@ -15,28 +16,35 @@ public class Main {
         Product tv = ProductFactory.createTV("TV", 3000, 2, 5.0);
         Product scratchCard = ProductFactory.createScratchCard("Mobile scratch card", 50, 100);
 
-        Customer customer = new Customer("Ali", 1000);
+        Customer customer = new Customer("Ali", 1000, true, "Cairo");
 
         Cart cart = new Cart();
-        cart.addObserver(new ConsoleLogger());
-        cart.add(cheese, 2);
-        cart.add(biscuits, 1);
-        cart.add(scratchCard, 1);
+        cart.addObserver(new ConsoleLogger(true));
+        cart.add(applyPremiumDiscount(customer, cheese), 2);
+        cart.add(applyPremiumDiscount(customer, biscuits), 1);
+        cart.add(applyPremiumDiscount(customer, scratchCard), 1);
         cart.add(tv,5);
 
         // Singleton Pattern: checkout is done through one service instance.
         CheckoutService.getInstance().checkout(customer, cart);
 
-        Customer customer2 = new Customer("mohamed", 1500);
+        Customer customer2 = new Customer("mohamed", 7500, false, "Alexandria");
 
         Cart cart2 = new Cart();
-        cart2.addObserver(new ConsoleLogger());
+        cart2.addObserver(new ConsoleLogger(true));
         cart2.add(cheese, 2);
         cart2.add(biscuits, 1);
         cart2.add(scratchCard, 1);
-        cart2.add(tv,5);
+        cart2.add(tv,2);
 
         CheckoutService.getInstance().checkout(customer2, cart2);
+    }
+
+    private static Product applyPremiumDiscount(Customer customer, Product product) {
+        if (customer.isPremium()) {
+            return new DiscountedProduct(product, 10);
+        }
+        return product;
     }
 }
 
