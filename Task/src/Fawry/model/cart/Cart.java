@@ -22,6 +22,10 @@ public class Cart {
         this.shippingStrategy = shippingStrategy;
     }
 
+    public void setShippingStrategy(ShippingStrategy shippingStrategy) {
+        this.shippingStrategy = shippingStrategy;
+    }
+
     public void addObserver(CartObserver observer) {
         observers.add(observer);
     }
